@@ -539,15 +539,15 @@ HMM::train (FILE *ftxt) {
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
          j=*jtag;
-         //cerr<<"previous alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n";
-	 //cerr<<"alpha["<<len-1<<"]["<<j<<"]="<<alpha[len-1][j]<<"\n";
-         //cerr<<"a["<<j<<"]["<<i<<"]="<<a[j][i]<<"\n";
-         //cerr<<"b["<<i<<"]["<<k<<"]="<<b[i][k]<<"\n";
+         //wcerr<<"previous alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n";
+	 //wcerr<<"alpha["<<len-1<<"]["<<j<<"]="<<alpha[len-1][j]<<"\n";
+         //wcerr<<"a["<<j<<"]["<<i<<"]="<<a[j][i]<<"\n";
+         //wcerr<<"b["<<i<<"]["<<k<<"]="<<b[i][k]<<"\n";
 	 alpha[len][i] += alpha[len-1][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k];
       }
       if (alpha[len][i]==0)
         alpha[len][i]=DBL_MIN;
-      //cerr<<"alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n--------\n";
+      //wcerr<<"alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n--------\n";
     }
 
     if (tags.size()>1) {
@@ -559,8 +559,8 @@ HMM::train (FILE *ftxt) {
       
       prob = alpha[len][tag];
       
-      //cerr<<"prob="<<prob<<"\n";
-      //cerr<<"alpha["<<len<<"]["<<tag<<"]="<<alpha[len][tag]<<"\n";
+      //wcerr<<"prob="<<prob<<"\n";
+      //wcerr<<"alpha["<<len<<"]["<<tag<<"]="<<alpha[len][tag]<<"\n";
       loli -= log(prob);  
       
       for (t=0; t<len; t++) {  // loop from T-1 to 0	
@@ -589,7 +589,7 @@ HMM::train (FILE *ftxt) {
 	          exit(1);	               
 	       }
 	       if (gamma[i]==0) {
-	          //cout<<"ZERO(3) gamma["<<i<<"] = "<<gamma[i]<<" alpha["<<len-t<<"]["<<i<<"]= "<<alpha[len-t][i]
+	          //wcout<<"ZERO(3) gamma["<<i<<"] = "<<gamma[i]<<" alpha["<<len-t<<"]["<<i<<"]= "<<alpha[len-t][i]
 	          //    <<" beta["<<t%2<<"]["<<i<<"] = "<<beta[t%2][i]<<" prob = "<<prob<<" previous gamma = "<<previous_value<<"\n";
 	          gamma[i]=DBL_MIN;
 	          //exit(1);	               
@@ -649,7 +649,7 @@ HMM::train (FILE *ftxt) {
           exit(1);
         }
 	if ((tdhmm.getA())[i][j]==0) {
-          //cerr <<"Error: BW - ZERO(1) a["<<i<<"]["<<j<<"]="<<(tdhmm.getA())[i][j]<<"\txsi["<<i<<"]["<<j<<"]="<<xsi[i][j]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
+          //wcerr <<"Error: BW - ZERO(1) a["<<i<<"]["<<j<<"]="<<(tdhmm.getA())[i][j]<<"\txsi["<<i<<"]["<<j<<"]="<<xsi[i][j]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
 	  //     exit(1);
         }
       }
@@ -672,7 +672,7 @@ HMM::train (FILE *ftxt) {
 	       exit(1);
         }
 	if ((tdhmm.getB())[i][k]==0) {
-          //cerr <<"Error: BW - ZERO(2) b["<<i<<"]["<<k<<"]="<<(tdhmm.getB())[i][k]<<"\tphi["<<i<<"]["<<k<<"]="<<phi[i][k]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
+          //wcerr <<"Error: BW - ZERO(2) b["<<i<<"]["<<k<<"]="<<(tdhmm.getB())[i][k]<<"\tphi["<<i<<"]["<<k<<"]="<<phi[i][k]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
 	  //     exit(1);
         }
       }
@@ -837,10 +837,10 @@ void
 HMM::print_A() {
   int i,j;
     
-  cout<<"TRANSITION MATRIX (A)\n------------------------------\n";  
+  wcout<<"TRANSITION MATRIX (A)\n------------------------------\n";  
   for(i=0; i != tdhmm.getN(); i++)
     for(j=0; j != tdhmm.getN(); j++) {
-      cout<<"A["<<i<<"]["<<j<<"] = "<<(tdhmm.getA())[i][j]<<"\n";
+      wcout<<"A["<<i<<"]["<<j<<"] = "<<(tdhmm.getA())[i][j]<<"\n";
     }    
 }
 
@@ -848,25 +848,25 @@ void
 HMM::print_B() {
   int i,k;  
 
-  cout<<"EMISSION MATRIX (B)\n-------------------------------\n";
+  wcout<<"EMISSION MATRIX (B)\n-------------------------------\n";
   for(i=0; i != tdhmm.getN(); i++)
     for(k=0; k != tdhmm.getM(); k++) {
       Collection &output = tdhmm.getOutput();
       if(output[k].find(i)!=output[k].end())
-        cout<<"B["<<i<<"]["<<k<<"] = "<<(tdhmm.getB())[i][k]<<"\n";
+        wcout<<"B["<<i<<"]["<<k<<"] = "<<(tdhmm.getB())[i][k]<<"\n";
     }
 }
 
 void HMM::print_ambiguity_classes() {
   set<TTag> ambiguity_class;
   set<TTag>::iterator itag;
-  cout<<"AMBIGUITY CLASSES\n-------------------------------\n";
+  wcout<<"AMBIGUITY CLASSES\n-------------------------------\n";
   for(int i=0; i != tdhmm.getM(); i++) {
     ambiguity_class = (tdhmm.getOutput())[i];
-    cout <<i<<": ";
+    wcout <<i<<": ";
     for (itag=ambiguity_class.begin(); itag!=ambiguity_class.end(); itag++) {
-      cout << *itag <<" ";
+      wcout << *itag <<" ";
     }
-    cout << "\n";
+    wcout << "\n";
   }
 }   

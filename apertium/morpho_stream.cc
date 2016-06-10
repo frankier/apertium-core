@@ -77,7 +77,7 @@ MorphoStream::get_next_word()
         word->discardOnAmbiguity(ref[i]);
       }
     }
-//    cout << *word << endl;
+//    wcout << *word << endl;
     return word;
   }
 

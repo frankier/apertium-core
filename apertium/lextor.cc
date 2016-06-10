@@ -590,13 +590,13 @@ LexTor::lexical_selector(wistream& is, FSTProcessor &fstp, int left, int right, 
 	
 	//For debug
 	/*
-	  cout<<L" | ";
+	  wcout<<L" | ";
 	  for(int j=0; j<window[left].n_lexical_choices(); j++) {
 	  if (j>0)
-	  cout<<L"|";
-	  cout<<window[left].get_lexical_choice(j,false);
+	  wcout<<L"|";
+	  wcout<<window[left].get_lexical_choice(j,false);
 	  }
-	  cout<<L"\n";
+	  wcout<<L"\n";
 	*/
 
 	//Now those words that were retained must be released
@@ -638,13 +638,13 @@ LexTor::lexical_selector(wistream& is, FSTProcessor &fstp, int left, int right, 
 
 	//For debug
 	/*
-	  cout<<L" | ";
+	  wcout<<L" | ";
 	  for(int j=0; j<window[i].n_lexical_choices(); j++) {
 	  if (j>0)
-	  cout<<L"|";
-	  cout<<window[i].get_lexical_choice(j,false);
+	  wcout<<L"|";
+	  wcout<<window[i].get_lexical_choice(j,false);
 	  }
-	  cout<<L"\n";
+	  wcout<<L"\n";
 	*/
 
 	//Now those words that were retained must be released
