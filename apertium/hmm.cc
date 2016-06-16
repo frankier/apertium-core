@@ -41,9 +41,14 @@
 #include <vector>
 #include <algorithm>
 #include <apertium/string_utils.h>
+#include <apertium/file_morpho_stream.h>
 
 using namespace Apertium;
 using namespace tagger_utils;
+
+TaggerData& HMM::get_tagger_data() {
+  return tdhmm;
+}
 
 void HMM::deserialise(FILE *Serialised_FILE_Tagger) {
   tdhmm.read(Serialised_FILE_Tagger);
@@ -61,21 +66,21 @@ void HMM::deserialise(const TaggerData &Deserialised_FILE_Tagger) {
   eos = (tdhmm.getTagIndex())[L"TAG_SENT"];
 }
 
-void HMM::init_probabilities_from_tagged_text_(FILE *TaggedCorpus,
-                                               FILE *UntaggedCorpus) {
-  init_probabilities_from_tagged_text(TaggedCorpus, UntaggedCorpus);
+void HMM::init_probabilities_from_tagged_text_(MorphoStream &stream_tagged,
+                                               MorphoStream &stream_untagged) {
+  init_probabilities_from_tagged_text(stream_tagged, stream_untagged);
   apply_rules();
 }
 
-void HMM::init_probabilities_kupiec_(FILE *Corpus) {
-  init_probabilities_kupiec(Corpus);
+void HMM::init_probabilities_kupiec_(MorphoStream &lexmorfo) {
+  init_probabilities_kupiec(lexmorfo);
   apply_rules();
 }
 
-void HMM::train(FILE *Corpus, unsigned long Count) {
-  for (; Count > 0; --Count) {
-    std::fseek(Corpus, 0, SEEK_SET);
-    train(Corpus);
+void HMM::train(MorphoStream &morpho_stream, unsigned long count) {
+  for (; count > 0; --count) {
+    morpho_stream.rewind();
+    train(morpho_stream);
   }
 
   apply_rules();
@@ -159,7 +164,7 @@ HMM::write_probabilities(FILE *out)
 }  
 
 void 
-HMM::init_probabilities_kupiec (FILE *is)
+HMM::init_probabilities_kupiec(MorphoStream &lexmorfo)
 {
   int N = tdhmm.getN();
   int M = tdhmm.getM();
@@ -177,8 +182,6 @@ HMM::init_probabilities_kupiec (FILE *is)
 #endif
   
   Collection &output = tdhmm.getOutput();
- 
-  MorphoStream lexmorfo(is, true, &tdhmm);
   
   TaggerWord *word=NULL;
 
@@ -205,7 +208,11 @@ HMM::init_probabilities_kupiec (FILE *is)
       tags = tdhmm.getOpenClass();
     }
     else {
-      require_ambiguity_class(tdhmm, tags, *word, nw);
+      if (allow_similar_ambg_class) {
+	tags = require_similar_ambiguity_class(tdhmm, tags);
+      } else {
+        require_ambiguity_class(tdhmm, tags, *word, nw);
+      }
     }
 
     k2=output[tags];
@@ -282,8 +289,10 @@ HMM::init_probabilities_kupiec (FILE *is)
   wcerr<<L"\n";
 }
 
+
 void 
-HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
+HMM::init_probabilities_from_tagged_text(MorphoStream &stream_tagged,
+                                         MorphoStream &stream_untagged) {
   int i, j, k, nw=0;
   int N = tdhmm.getN();
   int M = tdhmm.getM();
@@ -295,9 +304,6 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
   vector <vector <double> > emission(N, vector<double>(M, 0));
 #endif
 
-
-  MorphoStream stream_tagged(ftagged, true, &tdhmm);
-  MorphoStream stream_untagged(funtagged, true, &tdhmm);
   
   TaggerWord *word_tagged=NULL, *word_untagged=NULL;
   Collection &output = tdhmm.getOutput();
@@ -362,7 +368,11 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
       tags = tdhmm.getOpenClass();
     }
     else {
-      require_ambiguity_class(tdhmm, word_untagged->get_tags(), *word_untagged, nw);
+      if (allow_similar_ambg_class) {
+	tags = require_similar_ambiguity_class(tdhmm, tags);
+      } else {
+        require_ambiguity_class(tdhmm, word_untagged->get_tags(), *word_untagged, nw);
+      }
       tags = word_untagged->get_tags();
     }
 
@@ -447,9 +457,8 @@ HMM::apply_rules()
   }
 }
 
-void 
-HMM::read_dictionary(FILE *fdic) {
-  tagger_utils::read_dictionary(fdic, tdhmm);
+void
+HMM::post_ambg_class_scan() {
   int N = (tdhmm.getTagIndex()).size();
   int M = (tdhmm.getOutput()).size();
   wcerr << N << L" states and " << M <<L" ambiguity classes\n";
@@ -460,7 +469,7 @@ HMM::read_dictionary(FILE *fdic) {
 void
 HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
   set<set<TTag> > ambiguity_classes;
-  MorphoStream morpho_stream(in, true, &tdhmm);
+  FileMorphoStream morpho_stream(in, true, &tdhmm);
   
   TaggerWord *word = morpho_stream.get_next_word();
   
@@ -478,8 +487,8 @@ HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
   }
 }
 
-void 
-HMM::train (FILE *ftxt) {
+void
+HMM::train(MorphoStream &morpho_stream) {
   int i, j, k, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag; 
@@ -496,8 +505,6 @@ HMM::train (FILE *ftxt) {
   int ndesconocidas=0;
   // alpha => forward probabilities
   // beta  => backward probabilities
-  
-  MorphoStream morpho_stream(ftxt, true, &tdhmm);
 
   loli = 0;
   tag = eos;
@@ -527,8 +534,12 @@ HMM::train (FILE *ftxt) {
       tags = tdhmm.getOpenClass();
       ndesconocidas++;
     }
-    
-    require_ambiguity_class(tdhmm, tags, *word, nw);
+
+    if (allow_similar_ambg_class) {
+      tags = require_similar_ambiguity_class(tdhmm, tags);
+    } else {
+      require_ambiguity_class(tdhmm, tags, *word, nw);
+    }
     
     k = output[tags];    
     len = pending.size();
@@ -610,9 +621,12 @@ HMM::train (FILE *ftxt) {
     word = morpho_stream.get_next_word();
   }  
 
-  if ((pending.size()>1) || ((tag!=eos)&&(tag != (tdhmm.getTagIndex())[L"TAG_kEOF"]))) 
-    wcerr<<L"Warning: Thee las tag is not the end-of-sentence-tag\n";
-  
+  if ((pending.size()>1) || ((tag!=eos)&&(tag != (tdhmm.getTagIndex())[L"TAG_kEOF"]))) {
+    wcerr << L"Warning: The last tag is not the end-of-sentence-tag "
+          << L"but rather " << tdhmm.getArrayTags()[tag] << L". Line: " << nw
+	  << L". Pending: " << pending.size() << ". Tags: ";
+    wcerr << "\n";
+  }
   
   int N = tdhmm.getN();
   int M = tdhmm.getM();
@@ -705,12 +719,12 @@ HMM::train (FILE *ftxt) {
 }
 
 void 
-HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
+HMM::tagger(MorphoStream &morpho_stream, FILE *Output, const bool &First, MorphoStream *cg_morpho_stream) {
   int i, j, k, nw;
-  TaggerWord *word=NULL;
+  TaggerWord *word = NULL, *cg_word = NULL;
   TTag tag;
   
-  set <TTag> ambg_class_tags, tags, pretags;
+  set <TTag> ambg_class_tags, *cg_tags, tags, pretags;
   set <TTag>::iterator itag, jtag;
   
   double prob, loli, x;
@@ -725,8 +739,7 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
   
   vector <TaggerWord> wpend; 
   int nwpend;
-  
-  MorphoStream morpho_stream(Input, debug, &tdhmm);                             
+
   morpho_stream.setNullFlush(null_flush);
   
   Collection &output = tdhmm.getOutput();
@@ -738,6 +751,11 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
   alpha[0][eos] = 1;
    
   word = morpho_stream.get_next_word();
+
+  if (cg_morpho_stream != NULL) {
+    cg_word = cg_morpho_stream->get_next_word();
+    cg_tags = &cg_word->get_tags();
+  }
  
   while (word) {
     wpend.push_back(*word);    	    
@@ -767,7 +785,11 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {	//For all tags from the previous word
 	j=*jtag;
-	x = alpha[1-nwpend%2][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k];
+	if (cg_morpho_stream != NULL && cg_tags->find(i) == cg_tags->end()) {
+	  x = 0;
+	} else {
+	  x = alpha[1-nwpend%2][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k];
+	}
 	if (alpha[nwpend%2][i]<=x) {
 	  if (nwpend>1) 
 	    best[nwpend%2][i] = best[1-nwpend%2][j];
@@ -778,9 +800,17 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
     }
     
     //Backtracking
-    if (tags.size()==1) {       
-      tag = *tags.begin();      
-      
+    bool backtrack = false;
+    if (cg_morpho_stream != NULL && cg_tags->size() == 1) {
+      backtrack = true;
+      tag = *cg_tags->begin();
+    } else {
+      backtrack = tags.size() == 1;
+      if (backtrack) {
+        tag = *tags.begin();
+      }
+    }
+    if (backtrack) {
       prob = alpha[nwpend%2][tag];
       
       if (prob>0) 
@@ -807,6 +837,9 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
     }
     
     delete word;
+    if (cg_word) {
+      delete cg_word;
+    }
     
     if(morpho_stream.getEndOfFile())
     {
@@ -822,6 +855,13 @@ HMM::tagger(FILE *Input, FILE *Output, const bool &First) {
       morpho_stream.setEndOfFile(false);
     }
     word = morpho_stream.get_next_word();    
+
+    if (cg_morpho_stream != NULL) {
+      cg_word = cg_morpho_stream->get_next_word();
+      if (cg_word) {
+        cg_tags = &cg_word->get_tags();
+      }
+    }
   }
   
   if ((tags.size()>1)&&(debug)) {
